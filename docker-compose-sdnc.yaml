@@ -1,48 +1,4 @@
 services:
-  persistence: 
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
-    container_name: persistence
-    expose:
-      - 9200
-    ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-    networks:
-      smo:
-        ipv4_address: 172.40.0.30
-        ipv6_address: 2001:db8:1:1::30
-
-  fluentd:
-    build: ./fluentd
-    container_name: fluentd
-    volumes:
-      - ./fluentd/conf:/fluentd/etc
-    links:
-      - "persistence"
-    ports:
-      - "24224:24224"
-      - "24224:24224/udp"
-    networks:
-      smo:
-        ipv4_address: 172.40.0.31
-        ipv6_address: 2001:db8:1:1::31
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana-oss:7.10.2
-    container_name: kibana
-    links:
-      - "persistence"
-    ports:
-      - "5601:5601"
-    environment:
-      - SERVERNAME=kibana
-      - ELASTICSEARCH_HOSTS=http://persistence:9200
-    networks:
-      smo:
-        ipv4_address: 172.40.0.32
-        ipv6_address: 2001:db8:1:1::32
-
   odlux:
     image: nexus3.onap.org:10001/onap/sdnc-web-image:2.6.1
     container_name: odlux
@@ -59,10 +15,13 @@ services:
     depends_on:
       controller:
         condition: service_healthy
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: sdnc
     networks:
       smo:
-        ipv4_address: 172.40.0.33
-        ipv6_address: 2001:db8:1:1::33
 
   controller:
     image: nexus3.onap.org:10001/onap/sdnc-image:2.6.1
@@ -97,19 +56,14 @@ services:
     volumes:
       - ./controller/certs/certs.properties:/opt/opendaylight/current/certs/certs.properties
       - ./controller/certs/keys0.zip:/opt/opendaylight/current/certs/keys0.zip
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: sdnc
     networks:
       smo:
-        ipv4_address: 172.40.0.34
-        ipv6_address: 2001:db8:1:1::34
 
 networks:
   smo:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
-      config:
-      - subnet: 172.40.0.0/16
-        gateway: 172.40.0.1
-      - subnet: 2001:db8:1:1::/64
-        gateway: 2001:db8:1:1::1
+    external: true
